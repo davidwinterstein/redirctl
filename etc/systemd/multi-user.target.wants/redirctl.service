@@ -1,0 +1,16 @@
+[Unit]
+Description=redirCTL - a wrapper service for redir port forwardings
+After=network.target
+Requires=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/redirctl.pid
+ExecStart=/usr/sbin/redirctl start
+ExecStop=/usr/sbin/redirctl stop
+ExecReload=/usr/sbin/redirctl restart
+StandardOutput=syslog
+StandardError=/var/log/redir/redir_output.log
+
+[Install]
+WantedBy=multi-user.target
