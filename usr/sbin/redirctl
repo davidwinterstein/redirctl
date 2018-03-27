@@ -1,0 +1,104 @@
+#!/bin/bash
+
+[[ -f /etc/redir/ctl.cfg ]]			&& . /etc/redir/ctl.cfg			|| REDIR_LOG="/var/log/redir/redirctl.log" REDIR_OUT="/var/log/redir/redir_output.log"
+[[ -f /etc/redir/ips.cfg ]]			&& . /etc/redir/ips.cfg			|| declare -A REDIR_IPS
+[[ -f /etc/redir/ports.cfg ]]		&& . /etc/redir/ports.cfg		|| declare -a REDIR_PORTS=('22' '80' '443')
+[[ -f /etc/redir/special.cfg ]]	&& . /etc/redir/special.cfg	|| declare -A REDIR_SPECIAL
+
+REDIR_LOG_BASE="$(echo $REDIR_LOG |rev |cut --complement -d'/' -f1 |rev)"
+REDIR_OUT_BASE="$(echo $REDIR_OUT |rev |cut --complement -d'/' -f1 |rev)"
+[[ -d $REDIR_LOG_BASE ]] || mkdir -p $REDIR_LOG_BASE
+[[ -d $REDIR_OUT_BASE ]] || mkdir -p $REDIR_OUT_BASE
+
+function log() {
+	printf "\n[$(date +%F\ %T.%N)] ${@}\n" >>$REDIR_LOG
+}
+
+function redir_stop() {
+	printf "Stopping redirections... "
+	if [[ -n "$(pgrep -x '^redir$')" ]]; then
+		log "Stopping redirections..."
+		for REDIR_PROC in $(pgrep -x '^redir$'); do
+			kill -9 $REDIR_PROC &>>$REDIR_OUT
+		done
+		sleep 1
+		if [[ -n "$(pgrep -x '^redir$')" ]]; then
+			printf "error! Not all processes have been terminated.\n"
+			return 1
+		else
+			printf "done.\n"
+			return 0
+		fi
+	else
+		printf "not running.\n"
+		return 0
+	fi
+}
+
+function redir_start() {
+	printf "Starting redirections... "
+	if [ -n "$(pgrep -x '^redir$')" ]; then
+		printf "already running! If you made any configuration changes, please do a restart!\n"
+		return 1
+	else
+		ERRORS=0
+		log "Starting redirections..."
+
+		for REDIR_SOURCE in ${!REDIR_IPS[@]}; do
+			REDIR_TARGET="${REDIR_IPS[${REDIR_SOURCE}]}"
+			for REDIR_PORT in ${REDIR_PORTS[@]}; do
+				log "$REDIR_SOURCE [$REDIR_PORT] -> $REDIR_TARGET [$REDIR_PORT]"
+				redir --laddr=$REDIR_SOURCE --lport=$REDIR_PORT --caddr=$REDIR_TARGET --cport=$REDIR_PORT 1>/dev/null 2>$REDIR_OUT &
+				[[ $? -ne 0 ]] && let ERRORS++
+			done
+		done
+
+		for REDIR_SPECIAL_SOURCE in ${!REDIR_SPECIAL[@]}; do
+			REDIR_SPECIAL_SOURCE_IP="$(echo $REDIR_SPECIAL_SOURCE |cut -d':' -f1)"
+			REDIR_SPECIAL_SOURCE_PORT="$(echo $REDIR_SPECIAL_SOURCE |cut -d':' -f2)"
+			REDIR_SPECIAL_TARGET_IP="$(echo ${REDIR_SPECIAL[$REDIR_SPECIAL_SOURCE]} |cut -d':' -f1)"
+			REDIR_SPECIAL_TARGET_PORT="$(echo ${REDIR_SPECIAL[$REDIR_SPECIAL_SOURCE]} |cut -d':' -f2)"
+			log "$REDIR_SPECIAL_SOURCE_IP [$REDIR_SPECIAL_SOURCE_PORT] -> $REDIR_SPECIAL_TARGET_IP [$REDIR_SPECIAL_TARGET_PORT]"
+			redir --laddr=$REDIR_SPECIAL_SOURCE_IP --lport=$REDIR_SPECIAL_SOURCE_PORT --caddr=$REDIR_SPECIAL_TARGET_IP --cport=$REDIR_SPECIAL_TARGET_PORT 1>/dev/null 2>$REDIR_OUT &
+				[[ $? -ne 0 ]] && let ERRORS++
+		done
+
+		if [[ $ERRORS -eq 0 ]]; then
+			printf "done.\n"
+			return 0
+		else
+			printf "done, but $ERRORS error(s) occured.\n"
+			return $(( 1 + $ERRORS ))
+		fi
+	fi
+}
+
+function redir_status() {
+	if [ -n "$(pgrep -x '^redir$')" ]; then
+		printf "Redirections are active.\n"
+		return 0
+	else
+		printf "Redirections are not active.\n"
+		return 1
+	fi
+}
+
+case "${1}" in
+	start)
+		redir_start
+		;;
+	stop)
+		redir_stop
+		;;
+	restart)
+		redir_stop
+		redir_start
+		;;
+	status)
+		redir_status
+		;;
+	*)
+		printf "  Can't interpret ${1}. Usage: ${0} <status|start|stop|restart>\n"
+		exit 1
+		;;
+esac
