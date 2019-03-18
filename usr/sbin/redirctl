@@ -11,7 +11,7 @@ REDIR_OUT_BASE="$(echo $REDIR_OUT |rev |cut --complement -d'/' -f1 |rev)"
 [[ -d $REDIR_OUT_BASE ]] || mkdir -p $REDIR_OUT_BASE
 
 function log() {
-	printf "\n[$(date +%F\ %T.%N)] ${@}\n" >>$REDIR_LOG
+	printf "[$(date +%F\ %T.%N)] ${@}\n" >>$REDIR_LOG
 }
 
 function redir_stop() {
