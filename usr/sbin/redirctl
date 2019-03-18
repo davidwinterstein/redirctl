@@ -1,9 +1,9 @@
 #!/bin/bash
 
-[[ -f /etc/redir/ctl.cfg ]]			&& . /etc/redir/ctl.cfg			|| REDIR_LOG="/var/log/redir/redirctl.log" REDIR_OUT="/var/log/redir/redir_output.log"
-[[ -f /etc/redir/ips.cfg ]]			&& . /etc/redir/ips.cfg			|| declare -A REDIR_IPS
-[[ -f /etc/redir/ports.cfg ]]		&& . /etc/redir/ports.cfg		|| declare -a REDIR_PORTS=('22' '80' '443')
-[[ -f /etc/redir/special.cfg ]]	&& . /etc/redir/special.cfg	|| declare -A REDIR_SPECIAL
+[[ -f /etc/redir/ctl.cfg ]]     && . /etc/redir/ctl.cfg     || REDIR_LOG="/var/log/redir/redirctl.log" REDIR_OUT="/var/log/redir/redir_output.log"
+[[ -f /etc/redir/ips.cfg ]]     && . /etc/redir/ips.cfg     || declare -A REDIR_IPS
+[[ -f /etc/redir/ports.cfg ]]   && . /etc/redir/ports.cfg   || declare -a REDIR_PORTS=('22' '80' '443')
+[[ -f /etc/redir/special.cfg ]] && . /etc/redir/special.cfg || declare -A REDIR_SPECIAL
 
 REDIR_LOG_BASE="$(echo $REDIR_LOG |rev |cut --complement -d'/' -f1 |rev)"
 REDIR_OUT_BASE="$(echo $REDIR_OUT |rev |cut --complement -d'/' -f1 |rev)"
@@ -60,7 +60,7 @@ function redir_start() {
 			REDIR_SPECIAL_TARGET_PORT="$(echo ${REDIR_SPECIAL[$REDIR_SPECIAL_SOURCE]} |cut -d':' -f2)"
 			log "$REDIR_SPECIAL_SOURCE_IP [$REDIR_SPECIAL_SOURCE_PORT] -> $REDIR_SPECIAL_TARGET_IP [$REDIR_SPECIAL_TARGET_PORT]"
 			redir --laddr=$REDIR_SPECIAL_SOURCE_IP --lport=$REDIR_SPECIAL_SOURCE_PORT --caddr=$REDIR_SPECIAL_TARGET_IP --cport=$REDIR_SPECIAL_TARGET_PORT 1>/dev/null 2>$REDIR_OUT &
-				[[ $? -ne 0 ]] && let ERRORS++
+			[[ $? -ne 0 ]] && let ERRORS++
 		done
 
 		if [[ $ERRORS -eq 0 ]]; then
